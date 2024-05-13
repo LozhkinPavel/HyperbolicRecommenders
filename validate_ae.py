@@ -7,9 +7,8 @@ import torch.nn as nn
 import geoopt
 import json
 
-from src.batchmodels import EucMLREuclidianAutoEncoder, EucMLRHyperbolicAutoEncoder, HypMLREuclidianAutoEncoder, \
-    HypMLRHyperbolicAutoEncoder, HypLinearAE, MobiusAutoEncoder, MobiusLinear, PoincareLinear, \
-    UnidirectionalPoincareMLR, ExpMap0, MultipleOptimizer, HypLinear
+from src.geoopt_plusplus import UnidirectionalPoincareMLR, PoincareLinear
+from src.models import HypLinear, MobiusLinear, ExpMap0
 from src.batchrunner import train, report_metrics, eval_model, add_scores
 from src.datareader import read_data
 from src.datasets import make_loaders_strong, make_loaders_weak

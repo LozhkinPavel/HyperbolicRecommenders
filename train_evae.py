@@ -5,10 +5,10 @@ import torch
 import numpy as np
 from tqdm import tqdm
 
-from src.batchmodels import MultipleOptimizer
+from src.models import MultipleOptimizer
 from src.datareader import read_data
 from src.datasets import make_loaders_weak
-from src.vae.rsvae import VAE
+from src.vae.vae_models import VAE
 from src.vae.vae_runner import Trainer
 from src.batchrunner import report_metrics, eval_model
 from src.random import fix_torch_seed
@@ -40,8 +40,7 @@ data_dir, data_name = args.data_dir, args.dataname
 train_data, valid_in_data, valid_out_data, test_in_data, test_out_data, valid_unbias, test_unbias = read_data(data_dir, data_name)
 
 train_loader, valid_loader, test_loader, train_val_loader = make_loaders_weak(train_data, valid_in_data, valid_out_data,
-                                                                              test_in_data, test_out_data, args.batch_size)
-total_size = train_data.shape[0] + valid_in_data.shape[0] + test_in_data.shape[0]
+                                                                              test_in_data, test_out_data, args.batch_size, device)
 
 criterion = torch.nn.CrossEntropyLoss(reduction='mean').cuda()
 
@@ -70,6 +69,4 @@ for epoch in tqdm(range(1, args.epochs + 1)):
 
 scores = eval_model(best_model, criterion, test_loader, test_out_data, test_unbias, topk=[1, 5, 10, 20, 50, 100],
                     show_progress=args.show_progress, variational=True, threshold=args.threshold)
-# sample_model = nn.Sequential(best_model.component, SampleLayer(best_model.ball))
-# add_scores(sample_model, usr_data, item_data, best_model.ball, best_scores)
 print(scores)

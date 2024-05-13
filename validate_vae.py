@@ -7,11 +7,11 @@ import torch.nn as nn
 import geoopt
 import json
 
-from src.batchmodels import MobiusLinear, PoincareLinear, \
-    UnidirectionalPoincareMLR, MultipleOptimizer, HypLinear
 from src.batchrunner import eval_model, add_scores
 from src.datareader import read_data
-from src.vae.rsvae import SampleLayer
+from src.geoopt_plusplus import UnidirectionalPoincareMLR, PoincareLinear
+from src.models import HypLinear, MobiusLinear
+from src.vae.vae_models import SampleLayer
 from src.vae.vae_runner import Trainer
 from src.datasets import make_loaders_weak
 from src.geoopt_plusplus.manifolds import PoincareBall

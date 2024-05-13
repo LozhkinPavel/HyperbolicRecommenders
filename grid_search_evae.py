@@ -6,10 +6,10 @@ from copy import deepcopy
 import torch
 import numpy as np
 
-from src.batchmodels import MultipleOptimizer
+from src.models import MultipleOptimizer
 from src.datareader import read_data
 from src.datasets import make_loaders_weak
-from src.vae.rsvae import VAE
+from src.vae.vae_models import VAE
 from src.vae.vae_runner import Trainer
 from src.batchrunner import eval_model
 from src.random import fix_torch_seed
@@ -17,7 +17,7 @@ from src.random import fix_torch_seed
 from tqdm import tqdm
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--dataname", type=str, required=True) # depends on choice of data pack
+parser.add_argument("--dataname", type=str, required=True)
 parser.add_argument("--data_dir", type=str, default="./data/")
 parser.add_argument("--threshold", type=float, default=3.5)
 parser.add_argument("--num_setups", type=int, default=5)
@@ -25,7 +25,7 @@ parser.add_argument("--batch_size", type=int, default=512)
 parser.add_argument('--learning_rate', type=float, default=1e-3)
 parser.add_argument('--epochs', type=int, default=20)
 parser.add_argument("--seed", type=int, default=42)
-parser.add_argument("--embedding_dim", type=int, default=600)
+parser.add_argument("--embedding_dim", type=int, default=64)
 parser.add_argument("--dropout", type=float, default=0.5)
 parser.add_argument("--c", type=float, default=0.005)
 parser.add_argument('--total_anneal_steps', type=int, default=10)
@@ -50,7 +50,7 @@ data_dir, data_name = args.data_dir, args.dataname
 train_data, valid_in_data, valid_out_data, test_in_data, test_out_data, valid_unbias, test_unbias = read_data(data_dir, data_name)
 
 train_loader, valid_loader, test_loader, train_val_loader = make_loaders_weak(train_data, valid_in_data, valid_out_data,
-                                                                              test_in_data, test_out_data, args.batch_size)
+                                                                              test_in_data, test_out_data, args.batch_size, device)
 total_size = train_data.shape[0] + valid_in_data.shape[0] + test_in_data.shape[0]
 
 criterion = torch.nn.CrossEntropyLoss(reduction='mean').to(device)
@@ -99,15 +99,15 @@ optimizer = MultipleOptimizer(encoder_optimizer, decoder_optimizer, var_optimize
 trainer = Trainer(best_model, total_anneal_steps=best_args.total_anneal_steps, anneal_cap=best_args.anneal_cap)
 scheduler = None
 
-cur_best_ndcg = -np.inf
+best_ndcg = -np.inf
 for epoch in range(args.epochs):
     trainer.train(optimizer=optimizer, train_loader=train_val_loader, threshold=args.threshold)
     scores = eval_model(trainer.model, criterion, test_loader, test_out_data, test_unbias, topk=[10],
                         show_progress=args.show_progress, variational=True, threshold=args.threshold, only_ndcg=True)
     # report_metrics(scores, epoch)
-    if scores['ndcg@10'] > cur_best_ndcg:
+    if scores['ndcg@10'] > best_ndcg:
         cur_best_model = deepcopy(best_model)
-        cur_best_ndcg = scores['ndcg@10']
+        best_ndcg = scores['ndcg@10']
 
 best_model = deepcopy(cur_best_model)
 best_scores = eval_model(best_model, criterion, test_loader, test_out_data, test_unbias, topk=[1, 5, 10, 20, 50, 100],

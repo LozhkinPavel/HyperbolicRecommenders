@@ -9,7 +9,7 @@ import torch
 import torch.nn as nn
 import geoopt
 
-from src.batchmodels import PureSVD
+from src.models import PureSVD
 from src.batchrunner import train, report_metrics, eval_model
 from src.datareader import read_data
 from src.datasets import make_loaders_strong, make_loaders_weak
@@ -41,7 +41,7 @@ data_dir, data_name = args.data_dir, args.dataname
 train_data, valid_in_data, valid_out_data, test_in_data, test_out_data, valid_unbias, test_unbias = read_data(data_dir, data_name)
 
 train_loader, valid_loader, test_loader, train_val_loader = make_loaders_weak(train_data, valid_in_data, valid_out_data,
-                                                                         test_in_data, test_out_data, args.batch_size)
+                                                                         test_in_data, test_out_data, args.batch_size, device)
 total_size = train_data.shape[0] + valid_in_data.shape[0] + test_in_data.shape[0]
 
 best_rank = -1

@@ -7,13 +7,11 @@ import numpy as np
 import geoopt
 from tqdm import tqdm
 
-from src.batchmodels import HypLinear, MultipleOptimizer
+from src.models import HypLinear, MobiusLinear, ExpMap0, MultipleOptimizer
 from src.datareader import read_data
 from src.datasets import make_loaders_weak
 from src.geoopt_plusplus import UnidirectionalPoincareMLR, PoincareLinear
-from src.mobius_linear import MobiusLinear
-from src.vae.vae_models import HyperbolicVAE
-from src.vae.rsvae import SampleLayer
+from src.vae.vae_models import HyperbolicVAE, SampleLayer
 from src.vae.vae_runner import Trainer
 from src.batchrunner import report_metrics, add_scores, eval_model
 from src.random import fix_torch_seed

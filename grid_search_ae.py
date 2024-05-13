@@ -7,13 +7,12 @@ import torch.nn as nn
 import geoopt
 import json
 
-from src.batchmodels import EucMLREuclidianAutoEncoder, EucMLRHyperbolicAutoEncoder, HypMLREuclidianAutoEncoder, \
-    HypMLRHyperbolicAutoEncoder, HypLinearAE, MobiusAutoEncoder, MobiusLinear, PoincareLinear, \
-    UnidirectionalPoincareMLR, ExpMap0, MultipleOptimizer, HypLinear
 from src.batchrunner import train, report_metrics, eval_model, add_scores
 from src.datareader import read_data
 from src.datasets import make_loaders_strong, make_loaders_weak
+from src.geoopt_plusplus import PoincareLinear, UnidirectionalPoincareMLR
 from src.geoopt_plusplus.manifolds import PoincareBall
+from src.models import HypLinear, MultipleOptimizer, ExpMap0, MobiusLinear
 from src.random import fix_torch_seed
 
 from copy import deepcopy
@@ -40,6 +39,7 @@ args = parser.parse_args()
 
 bias = (args.bias == 'True')
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 fix_torch_seed(args.seed)
 
 learning_rates = np.logspace(-4, -2, 3)
@@ -59,21 +59,18 @@ curvature_grid = curvature_grid.flatten()
 time_to_converge = []
 ndcgs = []
 
-criterion = torch.nn.CrossEntropyLoss(reduction='mean').cuda()
-# criterion = nn.BCEWithLogitsLoss()
+criterion = torch.nn.CrossEntropyLoss(reduction='mean').to(device)
 data_dir, data_name = args.data_dir, args.dataname
 
 train_data, valid_in_data, valid_out_data, test_in_data, test_out_data, valid_unbias, test_unbias = read_data(data_dir, data_name)
 
 train_loader, valid_loader, test_loader, train_val_loader = make_loaders_weak(train_data, valid_in_data, valid_out_data,
-                                                                         test_in_data, test_out_data, args.batch_size)
+                                                                         test_in_data, test_out_data, args.batch_size, device)
 total_size = train_data.shape[0] + valid_in_data.shape[0] + test_in_data.shape[0]
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-# usr_data = (torch.sparse_csr_tensor(train_data.indptr, train_data.indices, train_data.data, train_data.shape,
-#                                     dtype=torch.float64).to(device).to_dense() > args.threshold).double()
-# item_data = torch.eye(usr_data.shape[1], dtype=torch.float64).to(device)
+if data_name == 'ml1m':
+    usr_data = torch.tensor((train_data > args.threshold).to_array(), dtype=torch.float64).to(device)
+    item_data = torch.eye(usr_data.shape[1], dtype=torch.float64).to(device)
 
 layer_factories = {'HypLinear': HypLinear, 'Mobius': MobiusLinear, 'PoincareLinear': PoincareLinear,
                    'HypMLR': UnidirectionalPoincareMLR}
@@ -142,23 +139,24 @@ for encoder in tqdm(['HypLinear', 'Mobius', 'PoincareLinear']):
         scheduler = None
         show_progress = args.show_progress
 
-        cur_best_ndcg = -np.inf
+        best_ndcg = -np.inf
         for epoch in range(args.epochs):
-            losses = train(train_val_loader, best_model, optimizer, criterion,
-                           masked_loss=False, show_progress=show_progress, threshold=args.threshold)
+            losses = train(train_val_loader, best_model, optimizer, criterion, show_progress=show_progress,
+                           threshold=args.threshold)
             scores = eval_model(best_model, criterion, test_loader, test_out_data, test_unbias,
                                 topk=[10], show_progress=args.show_progress, threshold=args.threshold, only_ndcg=True)
             scores.update({'train loss': np.mean(losses)})
-            if scores['ndcg@10'] > cur_best_ndcg:
+            if scores['ndcg@10'] > best_ndcg:
                 cur_best_model = deepcopy(best_model)
-                cur_best_ndcg = scores['ndcg@10']
+                best_ndcg = scores['ndcg@10']
 
         # print(best_scores)
         best_model = deepcopy(cur_best_model)
         best_scores = eval_model(best_model, criterion, test_loader, test_out_data, test_unbias,
                                  topk=[1, 5, 10, 20, 50, 100], show_progress=args.show_progress, threshold=args.threshold)
 
-        # add_scores(best_model[:2], usr_data, item_data, ball, best_scores)
+        if data_name == 'ml1m':
+            add_scores(best_model[:2], usr_data, item_data, ball, best_scores)
 
         for key, value in val_scores.items():
             best_scores['val_' + key] = value
